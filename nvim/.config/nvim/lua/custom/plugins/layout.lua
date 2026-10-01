@@ -177,7 +177,8 @@ vim.api.nvim_create_autocmd('StdinReadPre', {
 vim.api.nvim_create_autocmd('VimEnter', {
   callback = function()
     if reading_stdin then return end
-    if vim.fn.argc() == 0 then
+    -- (A restored session, see init.lua, counts as having files to edit)
+    if vim.fn.argc() == 0 and vim.v.this_session == '' then
       -- With no file to edit, start in the file tree. Focus it first: `show` returns
       -- focus to whatever window was active when it was called, which is now the tree.
       vim.cmd 'Neotree action=focus source=filesystem position=left'

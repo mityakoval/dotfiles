@@ -185,6 +185,16 @@ do
   --  See `:help hlsearch`
   vim.keymap.set('n', '<Esc>', '<cmd>nohlsearch<CR>')
 
+  -- Also clear search highlights automatically once the cursor moves off a match
+  vim.api.nvim_create_autocmd('CursorMoved', {
+    group = vim.api.nvim_create_augroup('auto-nohlsearch', { clear = true }),
+    callback = function()
+      if vim.v.hlsearch == 1 and vim.fn.searchcount().exact_match == 0 then
+        vim.schedule(function() vim.cmd.nohlsearch() end)
+      end
+    end,
+  })
+
   -- Diagnostic Config & Keymaps
   --  See `:help vim.diagnostic.Opts`
   vim.diagnostic.config {
@@ -250,6 +260,35 @@ do
     desc = 'Highlight when yanking (copying) text',
     group = vim.api.nvim_create_augroup('kickstart-highlight-yank', { clear = true }),
     callback = function() vim.hl.on_yank() end,
+  })
+
+  -- [[ Auto session per working directory ]]
+  --  Restores previously opened files when starting `nvim` with no file arguments,
+  --  and saves them on exit. Sessions live in stdpath('state')/sessions.
+  --  See `:help :mksession`
+  vim.o.sessionoptions = 'buffers,curdir,folds,tabpages,winsize,winpos,help'
+
+  local session_dir = vim.fn.stdpath 'state' .. '/sessions/'
+  vim.fn.mkdir(session_dir, 'p')
+  local function session_file() return session_dir .. vim.fn.getcwd():gsub('/', '%%') .. '.vim' end
+
+  local session_group = vim.api.nvim_create_augroup('auto-session', { clear = true })
+
+  vim.api.nvim_create_autocmd('VimEnter', {
+    desc = 'Restore session for the current directory',
+    group = session_group,
+    nested = true, -- so filetype/LSP/treesitter autocmds fire for restored buffers
+    callback = function()
+      if vim.fn.argc() == 0 and vim.fn.filereadable(session_file()) == 1 then vim.cmd('silent! source ' .. vim.fn.fnameescape(session_file())) end
+    end,
+  })
+
+  vim.api.nvim_create_autocmd('VimLeavePre', {
+    desc = 'Save session for the current directory',
+    group = session_group,
+    callback = function()
+      if vim.fn.argc() == 0 then vim.cmd('mksession! ' .. vim.fn.fnameescape(session_file())) end
+    end,
   })
 end
 
@@ -416,6 +455,7 @@ do
       { 'gr', group = 'LSP Actions', mode = { 'n' } },
     },
   }
+  vim.keymap.set('n', '<leader>?', function() require('which-key').show() end, { desc = 'Show all keymaps (which-key)' })
 
   -- [[ Colorscheme ]]
   -- You can easily change to a different colorscheme.
