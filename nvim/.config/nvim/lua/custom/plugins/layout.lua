@@ -1,12 +1,12 @@
 -- IDE-style layout:
 --   left:   neo-tree file tree (top) + neo-tree git status (bottom)
---   center: files, with a bufferline tab bar
+--   center: files, each split with its own tab bar (see window_tabs.lua)
+--   bottom: shell terminal (<C-/>)
 --   right:  Claude Code (claudecode.nvim)
 -- edgy.nvim keeps the side panels pinned in place.
 --
 -- https://github.com/nvim-neo-tree/neo-tree.nvim
 -- https://github.com/folke/edgy.nvim
--- https://github.com/akinsho/bufferline.nvim
 -- https://github.com/coder/claudecode.nvim
 -- https://github.com/folke/snacks.nvim (terminal provider for claudecode)
 --
@@ -21,7 +21,6 @@ vim.pack.add {
   'https://github.com/MunifTanjim/nui.nvim',
   { src = 'https://github.com/nvim-neo-tree/neo-tree.nvim', version = vim.version.range '3' },
   'https://github.com/folke/edgy.nvim',
-  { src = 'https://github.com/akinsho/bufferline.nvim', version = vim.version.range '*' },
   'https://github.com/folke/snacks.nvim',
   'https://github.com/coder/claudecode.nvim',
 }
@@ -30,6 +29,11 @@ vim.pack.add {
 local function is_claude(buf, win)
   local term = vim.b[buf].snacks_terminal
   return term ~= nil and vim.api.nvim_win_get_config(win).relative == '' and vim.inspect(term.cmd):find 'claude' ~= nil
+end
+
+-- Is this window a plain shell terminal (split, not Claude)?
+local function is_shell(buf, win)
+  return vim.b[buf].snacks_terminal ~= nil and vim.api.nvim_win_get_config(win).relative == '' and not is_claude(buf, win)
 end
 
 -- [[ neo-tree ]]
@@ -101,17 +105,12 @@ require('edgy').setup {
       size = { width = 0.35 },
     },
   },
-}
-
--- [[ bufferline: file tabs above the center panel ]]
-require('bufferline').setup {
-  options = {
-    diagnostics = 'nvim_lsp',
-    -- Leave gaps above the side panels so the tabs line up with the center panel
-    offsets = {
-      { filetype = 'neo-tree', text = '', separator = true },
-      { filetype = 'edgy', text = '', separator = true },
-      { filetype = 'snacks_terminal', text = '', separator = true },
+  bottom = {
+    {
+      title = 'Terminal',
+      ft = 'snacks_terminal',
+      filter = is_shell,
+      size = { height = 0.3 },
     },
   },
 }
@@ -192,9 +191,32 @@ vim.api.nvim_create_autocmd('VimEnter', {
 -- [[ Keymaps ]]
 vim.keymap.set('n', '\\', function() require('edgy').toggle 'left' end, { desc = 'Toggle sidebar' })
 
-vim.keymap.set('n', '<S-h>', '<Cmd>BufferLineCyclePrev<CR>', { desc = 'Previous tab' })
-vim.keymap.set('n', '<S-l>', '<Cmd>BufferLineCycleNext<CR>', { desc = 'Next tab' })
-vim.keymap.set('n', '<leader>x', function() require('snacks').bufdelete() end, { desc = 'Close tab' })
+-- Moving left into the sidebar always lands in the file tree (<C-j> from there reaches Git).
+-- Plain <C-w>h picks whichever panel is level with the cursor, often the Git one.
+vim.keymap.set('n', '<C-h>', function()
+  local from = vim.api.nvim_get_current_win()
+  vim.cmd 'wincmd h'
+  local to = vim.api.nvim_get_current_win()
+  if to == from or vim.bo.filetype ~= 'neo-tree' or vim.bo[vim.api.nvim_win_get_buf(from)].filetype == 'neo-tree' then return end
+  for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
+    if vim.b[vim.api.nvim_win_get_buf(win)].neo_tree_source == 'filesystem' then return vim.api.nvim_set_current_win(win) end
+  end
+end, { desc = 'Move focus to the left window' })
+
+-- Terminal panel below the files. Hiding keeps the shell running.
+-- (<C-_> is what many terminals send for <C-/>)
+local function toggle_terminal()
+  require('snacks').terminal.toggle(nil, {
+    win = {
+      keys = {
+        hide_slash = { '<C-/>', 'hide', mode = 't', desc = 'Hide terminal' },
+        hide_underscore = { '<C-_>', 'hide', mode = 't', desc = 'Hide terminal' },
+      },
+    },
+  })
+end
+vim.keymap.set('n', '<C-/>', toggle_terminal, { desc = 'Toggle terminal' })
+vim.keymap.set('n', '<C-_>', toggle_terminal, { desc = 'Toggle terminal' })
 
 require('which-key').add { { '<leader>a', group = '[A]I / Claude' } }
 vim.keymap.set('n', '<leader>ac', '<Cmd>ClaudeCode<CR>', { desc = 'Toggle Claude' })
