@@ -16,17 +16,7 @@ require('neogit').setup {}
 require('which-key').add { { '<leader>g', group = '[G]it' } }
 
 vim.keymap.set('n', '<leader>gg', '<Cmd>Neogit<CR>', { desc = 'Neo[g]it status' })
--- Diff of the current file against the index, as a split inside the center column so the
--- side panels stay put. (Diffview always opens a full-screen tab page of its own.)
--- The left side is the index: editing and writing it stages those changes.
-vim.keymap.set('n', '<leader>gd', function()
-  for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
-    -- Already open: close the index side, gitsigns then turns 'diff' off in the file window
-    if vim.api.nvim_buf_get_name(vim.api.nvim_win_get_buf(win)):find('^gitsigns://') then return vim.api.nvim_win_close(win, false) end
-  end
-  require('gitsigns').diffthis(nil, { vertical = true })
-end, { desc = 'Toggle [d]iff of current file' })
-vim.keymap.set('n', '<leader>gD', '<Cmd>DiffviewOpen<CR>', { desc = '[D]iff working tree (full screen)' })
+vim.keymap.set('n', '<leader>gd', '<Cmd>DiffviewOpen<CR>', { desc = '[D]iff working tree' })
 vim.keymap.set('n', '<leader>gh', '<Cmd>DiffviewFileHistory %<CR>', { desc = 'Current file [h]istory' })
 vim.keymap.set('n', '<leader>gH', '<Cmd>DiffviewFileHistory<CR>', { desc = 'Repo [H]istory' })
 vim.keymap.set('n', '<leader>gq', '<Cmd>DiffviewClose<CR>', { desc = '[Q]uit diff view' })
