@@ -266,7 +266,8 @@ do
   --  Restores previously opened files when starting `nvim` with no file arguments,
   --  and saves them on exit. Sessions live in stdpath('state')/sessions.
   --  See `:help :mksession`
-  vim.o.sessionoptions = 'buffers,curdir,folds,tabpages,winsize,winpos,help'
+  --  Only the current tab page is saved (no 'tabpages'), see the save autocmd below.
+  vim.o.sessionoptions = 'buffers,curdir,folds,winsize,winpos,help'
 
   local session_dir = vim.fn.stdpath 'state' .. '/sessions/'
   vim.fn.mkdir(session_dir, 'p')
@@ -287,7 +288,16 @@ do
     desc = 'Save session for the current directory',
     group = session_group,
     callback = function()
-      if vim.fn.argc() == 0 then vim.cmd('mksession! ' .. vim.fn.fnameescape(session_file())) end
+      if vim.fn.argc() ~= 0 then return end
+      -- Save the main editor tab, not the diffview/Neogit tabs opened on top of it,
+      -- and without git diff splits (their gitsigns:// / diffview:// buffers can't be restored)
+      vim.cmd.tabfirst()
+      for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
+        if vim.wo[win].diff and vim.api.nvim_buf_get_name(vim.api.nvim_win_get_buf(win)):find('://', 1, true) then
+          pcall(vim.api.nvim_win_close, win, true)
+        end
+      end
+      vim.cmd('mksession! ' .. vim.fn.fnameescape(session_file()))
     end,
   })
 end

@@ -159,7 +159,7 @@ vim.api.nvim_create_autocmd('BufEnter', {
           and not vim.bo[buf].modified
           and vim.api.nvim_buf_line_count(buf) == 1
           and vim.api.nvim_buf_get_lines(buf, 0, 1, false)[1] == ''
-          and vim.fn.bufwinid(buf) == -1
+          and #vim.fn.win_findbuf(buf) == 0 -- not shown in any tab page
         then
           vim.api.nvim_buf_delete(buf, {})
         end
