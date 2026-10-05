@@ -20,6 +20,7 @@ vim.keymap.set('n', '<leader>gd', '<Cmd>DiffviewOpen<CR>', { desc = '[D]iff work
 vim.keymap.set('n', '<leader>gh', '<Cmd>DiffviewFileHistory %<CR>', { desc = 'Current file [h]istory' })
 vim.keymap.set('n', '<leader>gH', '<Cmd>DiffviewFileHistory<CR>', { desc = 'Repo [H]istory' })
 vim.keymap.set('n', '<leader>gq', '<Cmd>DiffviewClose<CR>', { desc = '[Q]uit diff view' })
+vim.keymap.set('n', '<leader>gb', '<Cmd>Gitsigns blame<CR>', { desc = '[B]lame file' })
 
 -- [[ Git info in the statusline ]]
 -- Replaces mini.statusline's git section with repo-wide info for the working directory:
