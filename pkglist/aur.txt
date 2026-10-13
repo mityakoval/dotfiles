@@ -15,7 +15,6 @@ qmlfmt-git
 qmlfmt-git-debug
 swaylock-effects
 tty-clock
-waybar-mpris-git
 webcord
 wlogout
 xwaylandvideobridge
