@@ -14,6 +14,7 @@ Configs for my Arch Linux + Hyprland + [noctalia](https://github.com/noctalia-de
 | `btop`, `fastfetch`, `cava`, `aerc`, `openrgb` | their `~/.config/<app>/` |
 | `gaming` | MangoHud, goverlay, `~/gamemode.ini` |
 | `wallpapers` | `~/Pictures/Wallpapers/` (stored with Git LFS) |
+| `yay` | `~/.config/yay/config.json` (`cleanAfter`: delete build files after installing) |
 
 Not stow packages: `pkglist/` (installed packages), `system/` (files for `/etc`), `hooks/` (git hooks), `bootstrap.sh`.
 
@@ -78,8 +79,9 @@ cd ~/dotfiles
 5. stows every package;
 6. enables the systemd user units;
 7. installs the pacman hook that keeps `pkglist/` current;
-8. enables the gitleaks pre-commit hook;
-9. creates an empty `~/.zshrc.local` and switches your shell to zsh.
+8. enables `paccache.timer` (weekly pacman cache cleanup, keeps the last 3 versions of each package);
+9. enables the gitleaks pre-commit hook;
+10. creates an empty `~/.zshrc.local` and switches your shell to zsh.
 
 Then put your secrets in `~/.zshrc.local` (see [Secrets](#secrets)) and log out/in.
 
@@ -214,6 +216,8 @@ Plugin **code** in `~/.config/noctalia/plugins/` is not tracked (noctalia re-dow
 ## Package lists
 
 `pkglist/native.txt` and `pkglist/aur.txt` list explicitly-installed packages. A pacman hook (`/etc/pacman.d/hooks/dotfiles-pkglist.hook`, installed by `bootstrap.sh` from `system/pkglist.hook.in`) regenerates them after every install/remove — you just commit the diff when you see it. Regenerate manually with `pkglist/update.sh`.
+
+Package caches are cleaned automatically: `paccache.timer` (from `pacman-contrib`) prunes `/var/cache/pacman/pkg` weekly, and yay's `cleanAfter` (in the `yay` package) removes AUR build files from `~/.cache/yay` after each install.
 
 Not covered by the lists (install by hand if needed): Homebrew (`/home/linuxbrew`), nvm (`~/.config/nvm`), rustup, sdkman.
 

@@ -8,7 +8,7 @@ set -euo pipefail
 DOTFILES="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$DOTFILES"
 
-PACKAGES=(hypr kitty nvim zsh noctalia theming systemd btop fastfetch cava aerc openrgb gaming wallpapers)
+PACKAGES=(hypr kitty nvim zsh noctalia theming systemd btop fastfetch cava aerc openrgb gaming wallpapers yay)
 
 install_pkgs=1
 [[ "${1:-}" == "--no-pkgs" ]] && install_pkgs=0
@@ -58,6 +58,9 @@ systemctl --user enable prtscr-remap.service
 step "Installing the pacman hook that keeps pkglist/ up to date"
 sed -e "s|@USER@|$USER|" -e "s|@DOTFILES@|$DOTFILES|" system/pkglist.hook.in \
     | sudo install -Dm644 /dev/stdin /etc/pacman.d/hooks/dotfiles-pkglist.hook
+
+step "Enabling weekly pacman cache cleanup (paccache, keeps 3 versions)"
+sudo systemctl enable --now paccache.timer
 
 if [[ ! -f "$HOME/.zshrc.local" ]]; then
     step "Creating an empty ~/.zshrc.local for secrets"
