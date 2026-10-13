@@ -118,6 +118,12 @@ do
   -- Don't show the mode, since it's already in the status line
   vim.o.showmode = false
 
+  -- Hide the command line until it's used. The experimental ui2 shows messages in a
+  -- small window instead of "Press ENTER" prompts; search count and macro recording
+  -- move into the statusline (heirline)
+  vim.o.cmdheight = 0
+  require('vim._core.ui2').enable { enable = true, msg = { targets = 'msg' } }
+
   -- Sync clipboard between OS and Neovim.
   --  Schedule the setting after `UiEnter` because it can increase startup-time.
   --  Remove this option if you want your OS clipboard to remain independent.
@@ -157,6 +163,15 @@ do
   --   and `:help lua-guide-options`
   vim.o.list = true
   vim.opt.listchars = { tab = '» ', trail = '·', nbsp = '␣' }
+
+  -- Folds come from treesitter (see the treesitter section). Start with everything open;
+  -- the first `zc`/`za` turns folding on. A closed fold shows its first line, highlighted.
+  vim.o.foldenable = false
+  vim.o.foldtext = ''
+  vim.opt.fillchars:append { fold = ' ' }
+
+  -- Rounded border on floating windows (hover, signature help, completion docs, …)
+  vim.o.winborder = 'rounded'
 
   -- Preview substitutions live, as you type!
   vim.o.inccommand = 'split'
@@ -260,6 +275,14 @@ do
     desc = 'Highlight when yanking (copying) text',
     group = vim.api.nvim_create_augroup('kickstart-highlight-yank', { clear = true }),
     callback = function() vim.hl.on_yank() end,
+  })
+
+  -- Open the quickfix list after :grep, :make, :vimgrep etc. if it has entries
+  -- (keymaps inside the list are in `after/ftplugin/qf.lua`)
+  vim.api.nvim_create_autocmd('QuickFixCmdPost', {
+    group = vim.api.nvim_create_augroup('auto-open-quickfix', { clear = true }),
+    nested = true,
+    command = 'cwindow',
   })
 
   -- [[ Auto session per working directory ]]
@@ -463,6 +486,9 @@ do
       { '<leader>t', group = '[T]oggle' },
       { '<leader>h', group = 'Git [H]unk', mode = { 'n', 'v' } }, -- Enable gitsigns recommended keymaps first
       { 'gr', group = 'LSP Actions', mode = { 'n' } },
+      { '<leader>l', group = '[L]SP' },
+      { '<leader>lc', group = '[C]alls' },
+      { '<leader>lp', group = '[P]eek' },
     },
   }
   vim.keymap.set('n', '<leader>?', function() require('which-key').show() end, { desc = 'Show all keymaps (which-key)' })
@@ -484,7 +510,37 @@ do
   vim.pack.add { gh 'rebelot/kanagawa.nvim' }
   require('kanagawa').setup {
     -- `background` overrides `theme`: Nvim always sets 'background', so map both to wave
-    background = { dark = 'wave', light = 'lotus' },
+    background = { dark = 'wave', light = 'wave' },
+    -- From rebelot's config: floats without a background, darker side panels and lists,
+    -- diagnostic virtual text on a tinted background
+    overrides = function(colors)
+      local theme = colors.theme
+      local color = require 'kanagawa.lib.color'
+      local function tinted(fg) return { fg = fg, bg = color(fg):blend(theme.ui.bg, 0.95):to_hex() } end
+      return {
+        NormalFloat = { bg = 'none' },
+        FloatTitle = { bg = 'none' },
+        FloatBorder = { bg = 'none' },
+        MasonNormal = { bg = theme.ui.bg_m3, fg = theme.ui.fg_dim },
+        Pmenu = { fg = theme.ui.shade0, bg = theme.ui.bg_p1, blend = vim.o.pumblend },
+        PmenuSel = { fg = 'NONE', bg = theme.ui.bg_p2 },
+        PmenuSbar = { bg = theme.ui.bg_m1 },
+        PmenuThumb = { bg = theme.ui.bg_p2 },
+        NormalDark = { fg = theme.ui.fg_dim, bg = theme.ui.bg_m3 },
+        NeoTreeNormal = { link = 'NormalDark' },
+        NeoTreeNormalNC = { link = 'NeoTreeNormal' },
+        EdgyNormal = { link = 'NormalDark' }, -- edgy panels: file tree, terminal, Claude
+        DiagnosticVirtualTextError = tinted(theme.diag.error),
+        DiagnosticVirtualTextWarn = tinted(theme.diag.warning),
+        DiagnosticVirtualTextHint = tinted(theme.diag.hint),
+        DiagnosticVirtualTextInfo = tinted(theme.diag.info),
+        DiagnosticVirtualTextOk = tinted(theme.diag.ok),
+        -- Faint indent guides; the current scope one step brighter
+        IblIndent = { fg = theme.ui.bg_p2 },
+        IblWhitespace = { fg = theme.ui.bg_p2 },
+        IblScope = { fg = theme.ui.whitespace },
+      }
+    end,
   }
 
 
@@ -516,13 +572,21 @@ do
   --  - va)  - [V]isually select [A]round [)]paren
   --  - yiiq - [Y]ank [I]nside [I]+1 [Q]uote
   --  - ci'  - [C]hange [I]nside [']quote
-  require('mini.ai').setup {
+  --  - daF  - [D]elete [A]round [F]unction definition (treesitter, vs `f` = function call)
+  --  - vic  - [V]isually select [I]nside [C]lass (struct/enum/impl/trait in Rust)
+  local ai = require 'mini.ai'
+  ai.setup {
     -- NOTE: Avoid conflicts with the built-in incremental selection mappings on Neovim>=0.12 (see `:help treesitter-incremental-selection`)
     mappings = {
       around_next = 'aa',
       inside_next = 'ii',
     },
     n_lines = 500,
+    -- Queries come from nvim-treesitter-textobjects (lua/custom/plugins/textobjects.lua)
+    custom_textobjects = {
+      F = ai.gen_spec.treesitter { a = '@function.outer', i = '@function.inner' },
+      c = ai.gen_spec.treesitter { a = '@class.outer', i = '@class.inner' },
+    },
   }
 
   -- Add/delete/replace surroundings (brackets, quotes, etc.)
@@ -532,18 +596,7 @@ do
   -- - sr)'  - [S]urround [R]eplace [)] [']
   require('mini.surround').setup()
 
-  -- Simple and easy statusline.
-  --  You could remove this setup call if you don't like it,
-  --  and try some other statusline plugin
-  local statusline = require 'mini.statusline'
-  -- Set `use_icons` to true if you have a Nerd Font
-  statusline.setup { use_icons = vim.g.have_nerd_font }
-
-  -- You can configure sections in the statusline by overriding their
-  -- default behavior. For example, here we set the section for
-  -- cursor location to LINE:COLUMN
-  ---@diagnostic disable-next-line: duplicate-set-field
-  statusline.section_location = function() return '%2l:%-2v' end
+  -- Statusline is heirline, see `lua/custom/plugins/statusline.lua`
 
   -- ... and there is more!
   --  Check out: https://github.com/nvim-mini/mini.nvim
@@ -650,6 +703,10 @@ do
       -- Similar to document symbols, except searches over your entire project.
       vim.keymap.set('n', 'gW', builtin.lsp_dynamic_workspace_symbols, { buffer = buf, desc = 'Open Workspace Symbols' })
 
+      -- Who calls the function under your cursor, and what does it call.
+      vim.keymap.set('n', '<leader>lci', builtin.lsp_incoming_calls, { buffer = buf, desc = '[I]ncoming calls' })
+      vim.keymap.set('n', '<leader>lco', builtin.lsp_outgoing_calls, { buffer = buf, desc = '[O]utgoing calls' })
+
       -- Jump to the type of the word under your cursor.
       -- Useful when you're not sure what type a variable is and you want to see
       -- the definition of its *type*, not where it was *defined*.
@@ -717,7 +774,8 @@ do
 
   -- Useful status updates for LSP.
   vim.pack.add { gh 'j-hui/fidget.nvim' }
-  require('fidget').setup {}
+  -- Also show vim.notify messages in fidget's corner window, so they don't interrupt
+  require('fidget').setup { notification = { override_vim_notify = true } }
 
   --  This function gets run when an LSP attaches to a particular buffer.
   --    That is to say, every time a new file is opened that is associated with
@@ -748,12 +806,31 @@ do
       --  For example, in C this would take you to the header.
       map('grD', vim.lsp.buf.declaration, '[G]oto [D]eclaration')
 
+      -- Peek without jumping: show the location in a floating window (press the key again to focus it)
+      local function peek(method, title)
+        return function()
+          local params = function(client) return vim.lsp.util.make_position_params(0, client.offset_encoding) end
+          vim.lsp.buf_request_all(0, method, params, function(results)
+            for _, res in pairs(results) do
+              local location = res.result
+              if vim.islist(location) then location = location[1] end
+              if location then return vim.lsp.util.preview_location(location, { border = 'rounded', title = title, title_pos = 'left' }) end
+            end
+            vim.notify('No ' .. title:lower() .. ' found', vim.log.levels.INFO)
+          end)
+        end
+      end
+      map('<leader>lpd', peek('textDocument/definition', 'Definition'), '[P]eek [D]efinition')
+      map('<leader>lpi', peek('textDocument/implementation', 'Implementation'), '[P]eek [I]mplementation')
+      map('<leader>lpD', peek('textDocument/declaration', 'Declaration'), '[P]eek [D]eclaration')
+
       -- The following two autocommands are used to highlight references of the
       -- word under your cursor when your cursor rests there for a little while.
       --    See `:help CursorHold` for information about when this is executed
       --
       -- When you move your cursor, the highlights will be cleared (the second autocommand).
       local client = vim.lsp.get_client_by_id(event.data.client_id)
+      if client then vim.notify(client.name .. ' attached', vim.log.levels.INFO) end
       if client and client:supports_method('textDocument/documentHighlight', event.buf) then
         local highlight_augroup = vim.api.nvim_create_augroup('kickstart-lsp-highlight', { clear = false })
         vim.api.nvim_create_autocmd({ 'CursorHold', 'CursorHoldI' }, {
@@ -777,15 +854,17 @@ do
         })
       end
 
-      -- The following code creates a keymap to toggle inlay hints in your
-      -- code, if the language server you are using supports them
-      --
-      -- This may be unwanted, since they displace some of your code
+      -- Show inlay hints (types, parameter names) if the language server supports them,
+      -- with a keymap to toggle them off since they displace some of your code
       if client and client:supports_method('textDocument/inlayHint', event.buf) then
+        vim.lsp.inlay_hint.enable(true, { bufnr = event.buf })
         map('<leader>th', function() vim.lsp.inlay_hint.enable(not vim.lsp.inlay_hint.is_enabled { bufnr = event.buf }) end, '[T]oggle Inlay [H]ints')
       end
     end,
   })
+
+  -- Show code lenses (e.g. "▶ Run test" from rust-analyzer) above the code; run the one under the cursor with `grx`
+  vim.lsp.codelens.enable(true)
 
   -- Enable the following language servers
   --  Feel free to add/remove any LSPs that you want here. They will automatically be installed.
@@ -1027,8 +1106,8 @@ do
 
     -- Enable treesitter based folds
     -- For more info on folds see `:help folds`
-    -- vim.wo.foldexpr = 'v:lua.vim.treesitter.foldexpr()'
-    -- vim.wo.foldmethod = 'expr'
+    vim.wo.foldexpr = 'v:lua.vim.treesitter.foldexpr()'
+    vim.wo.foldmethod = 'expr'
 
     -- Check if treesitter indentation is available for this language, and if so enable it
     -- in case there is no indent query, the indentexpr will fallback to the vim's built in one
@@ -1077,7 +1156,7 @@ do
   --  Uncomment any of the lines below to enable them (you will need to restart nvim).
   --
   require 'kickstart.plugins.debug'
-  -- require 'kickstart.plugins.indent_line'
+  require 'kickstart.plugins.indent_line'
   -- require 'kickstart.plugins.lint'
   -- require 'kickstart.plugins.autopairs'
   -- require 'kickstart.plugins.neo-tree'

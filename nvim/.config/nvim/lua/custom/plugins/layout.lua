@@ -1,6 +1,6 @@
 -- IDE-style layout:
 --   left:   neo-tree file tree (top) + neo-tree git status (bottom)
---   center: files, each split with its own tab bar (see window_tabs.lua)
+--   center: files (buffer tabline + winbar from heirline, see heirline.lua)
 --   bottom: shell terminal (<C-/>)
 --   right:  Claude Code (claudecode.nvim)
 -- edgy.nvim keeps the side panels pinned in place.
