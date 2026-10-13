@@ -476,15 +476,24 @@ do
   vim.pack.add { gh 'folke/tokyonight.nvim' }
   ---@diagnostic disable-next-line: missing-fields
   require('tokyonight').setup {
+    style = 'night', -- used when 'background' is dark; 'day' is used when it's light
     styles = {
-      comments = { italic = false }, -- Disable italics in comments
+      comments = { italic = true }, -- Disable italics in comments
     },
   }
+  vim.pack.add { gh 'rebelot/kanagawa.nvim' }
+  require('kanagawa').setup {
+    -- `background` overrides `theme`: Nvim always sets 'background', so map both to wave
+    background = { dark = 'wave', light = 'lotus' },
+  }
+
 
   -- Load the colorscheme here.
   -- Like many other themes, this one has different styles, and you could load
   -- any other, such as 'tokyonight-storm', 'tokyonight-moon', or 'tokyonight-day'.
-  vim.cmd.colorscheme 'tokyonight-night'
+  -- Plain 'tokyonight' follows 'background', which Nvim sets from the terminal's
+  -- background color (and re-checks when the terminal switches light/dark).
+  vim.cmd.colorscheme 'kanagawa'
 
   -- Highlight todo, notes, etc in comments
   vim.pack.add { gh 'folke/todo-comments.nvim' }
@@ -795,6 +804,8 @@ do
     -- rust_analyzer = {},
     -- NOTE: Rust is handled by rustaceanvim in `lua/custom/plugins/rust.lua`, don't enable rust_analyzer here
 
+    kotlin_lsp = {}, -- JetBrains kotlin-lsp (IntelliJ-based), installed via Mason
+
     stylua = {}, -- Used to format Lua code
 
     -- Special Lua Config, as recommended by neovim help docs
@@ -881,6 +892,7 @@ do
         -- lua = true,
         -- python = true,
         rust = true,
+        kotlin = true,
       }
       if enabled_filetypes[vim.bo[bufnr].filetype] then
         return { timeout_ms = 1000 }
@@ -1001,7 +1013,7 @@ do
   vim.pack.add { { src = gh 'nvim-treesitter/nvim-treesitter', version = 'main' } }
 
   -- Ensure basic parsers are installed
-  local parsers = { 'bash', 'c', 'diff', 'html', 'lua', 'luadoc', 'markdown', 'markdown_inline', 'query', 'rust', 'toml', 'vim', 'vimdoc' }
+  local parsers = { 'bash', 'c', 'diff', 'html', 'lua', 'luadoc', 'markdown', 'markdown_inline', 'kotlin', 'query', 'rust', 'toml', 'vim', 'vimdoc' }
   require('nvim-treesitter').install(parsers)
 
   ---@param buf integer
