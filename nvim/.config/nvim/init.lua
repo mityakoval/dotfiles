@@ -804,8 +804,6 @@ do
     -- rust_analyzer = {},
     -- NOTE: Rust is handled by rustaceanvim in `lua/custom/plugins/rust.lua`, don't enable rust_analyzer here
 
-    kotlin_lsp = {}, -- JetBrains kotlin-lsp (IntelliJ-based), installed via Mason
-
     stylua = {}, -- Used to format Lua code
 
     -- Special Lua Config, as recommended by neovim help docs
@@ -892,7 +890,6 @@ do
         -- lua = true,
         -- python = true,
         rust = true,
-        kotlin = true,
       }
       if enabled_filetypes[vim.bo[bufnr].filetype] then
         return { timeout_ms = 1000 }
@@ -1013,7 +1010,7 @@ do
   vim.pack.add { { src = gh 'nvim-treesitter/nvim-treesitter', version = 'main' } }
 
   -- Ensure basic parsers are installed
-  local parsers = { 'bash', 'c', 'diff', 'html', 'lua', 'luadoc', 'markdown', 'markdown_inline', 'kotlin', 'query', 'rust', 'toml', 'vim', 'vimdoc' }
+  local parsers = { 'bash', 'c', 'diff', 'html', 'lua', 'luadoc', 'markdown', 'markdown_inline', 'query', 'rust', 'toml', 'vim', 'vimdoc' }
   require('nvim-treesitter').install(parsers)
 
   ---@param buf integer
