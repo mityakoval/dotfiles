@@ -1,0 +1,15 @@
+[Unit]
+Description=Rewrite Lofree Air100 PrtScr macro to a real Print key
+PartOf=graphical-session.target
+Requisite=graphical-session.target
+After=graphical-session.target
+
+[Service]
+ExecStart=%h/.config/hypr/scripts/prtscr-remap
+# Always, not on-failure: a clean exit is how the script reports the keyboard
+# being unplugged, and we want it waiting again for the replug.
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=graphical-session.target

@@ -1,0 +1,12 @@
+# Secrets and machine-local overrides
+.zshrc.local
+*.local
+
+# Runtime junk that apps write next to their configs
+*.log
+logs/
+
+# noctalia plugin code is re-downloaded from the registry (see plugins.json);
+# only each plugin's settings.json is tracked
+noctalia/.config/noctalia/plugins/*/*
+!noctalia/.config/noctalia/plugins/*/settings.json

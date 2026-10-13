@@ -1,0 +1,120 @@
+#!/usr/bin/python3
+"""Regenerate ~/.config/mimeapps.list [Default Applications] deliberately.
+
+Reads the MimeType= lines the installed apps actually declare, assigns each type
+to the intended app, and preserves every existing entry we are not managing
+(browser and x-scheme-handler lines) verbatim.
+"""
+
+import os
+import sys
+
+APPDIRS = ["/usr/share/applications",
+           os.path.expanduser("~/.local/share/applications")]
+
+MIMEAPPS = os.path.expanduser("~/.config/mimeapps.list")
+
+MPV = "mpv.desktop"
+# imv-dir opens the file's whole directory as a browsable playlist, rather than
+# just the one file. Declares the same types as plain imv.desktop.
+IMV = "imv-dir.desktop"
+ZATHURA = "org.pwmt.zathura.desktop"
+XARCHIVER = "xarchiver.desktop"
+
+
+def desktop_path(name):
+    for d in APPDIRS:
+        p = os.path.join(d, name)
+        if os.path.exists(p):
+            return p
+    return None
+
+
+def declared_types(name):
+    p = desktop_path(name)
+    if not p:
+        sys.exit(f"missing desktop file: {name}")
+    with open(p) as fh:
+        for line in fh:
+            if line.startswith("MimeType="):
+                raw = line.split("=", 1)[1].strip()
+                return [t for t in raw.split(";") if t]
+    return []
+
+
+def main():
+    mpv_types = declared_types(MPV)
+    imv_types = declared_types(IMV)
+    # zathura.desktop declares no MimeType of its own; the associations live in
+    # the backend plugin file. Take the list from there, point it at the generic
+    # launcher so it survives a backend swap, and drop the image types the
+    # mupdf backend also claims -- imv owns those.
+    zathura_types = [t for t in declared_types("org.pwmt.zathura-pdf-mupdf.desktop")
+                     if not t.startswith("image/")]
+    arch_types = declared_types(XARCHIVER)
+
+    assigned = {}
+    # Later assignments win, so order encodes precedence.
+    for t in arch_types:
+        assigned[t] = XARCHIVER
+    for t in mpv_types:
+        assigned[t] = MPV
+    for t in zathura_types:          # epub is claimed by xarchiver too; zathura reads it
+        assigned[t] = ZATHURA
+    for t in imv_types:              # images beat the zathura/mupdf claims
+        assigned[t] = IMV
+
+    # Preserve any existing entry we are not managing (schemes, html, browsers),
+    # and drop entries whose desktop file is gone.
+    preserved, added_assoc, dropped = [], [], []
+    section = None
+    with open(MIMEAPPS) as fh:
+        for line in fh:
+            s = line.strip()
+            if s.startswith("["):
+                section = s
+                continue
+            if not s or "=" not in s:
+                continue
+            mime, app = s.split("=", 1)
+            live = [a for a in app.split(";") if a and desktop_path(a)]
+            gone = [a for a in app.split(";") if a and not desktop_path(a)]
+            for a in gone:
+                dropped.append((section, mime, a))
+            if not live:
+                continue
+            if section == "[Default Applications]" and mime not in assigned:
+                preserved.append((mime, ";".join(live)))
+            elif section == "[Added Associations]":
+                added_assoc.append((mime, ";".join(live) + ";"))
+
+    out = ["[Default Applications]"]
+    out.append("# Browsers / URL schemes (preserved)")
+    for mime, app in preserved:
+        out.append(f"{mime}={app}")
+    for label, app in (("Video / audio -> mpv", MPV),
+                       ("Images -> imv", IMV),
+                       ("Documents -> zathura", ZATHURA),
+                       ("Archives -> xarchiver", XARCHIVER)):
+        types = sorted(t for t, a in assigned.items() if a == app)
+        out.append("")
+        out.append(f"# {label} ({len(types)} types)")
+        out.extend(f"{t}={app}" for t in types)
+
+    if added_assoc:
+        out.append("")
+        out.append("[Added Associations]")
+        out.extend(f"{mime}={app}" for mime, app in added_assoc)
+
+    with open(MIMEAPPS, "w") as fh:
+        fh.write("\n".join(out) + "\n")
+
+    print(f"wrote {MIMEAPPS}")
+    print(f"  managed: {len(assigned)}  preserved: {len(preserved)}"
+          f"  added-assoc: {len(added_assoc)}")
+    for section, mime, app in dropped:
+        print(f"  DROPPED {section} {mime}={app} (desktop file missing)")
+
+
+if __name__ == "__main__":
+    main()

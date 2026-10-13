@@ -1,0 +1,123 @@
+#!/usr/bin/python3
+"""Rewrite the Lofree Air100's PrtScr macro into a real Print key.
+
+The board is kept in Mac mode (it impersonates an Apple keyboard, VID 05ac, so
+macOS gives it native Cmd/Option behaviour). In that mode the PrtScr key is a
+hardware macro for Cmd+Shift+3, which reaches Hyprland as SUPER+SHIFT+3 and is
+indistinguishable from the real workspace-3 binding by keycode alone.
+
+The one thing that does separate them is atomicity: the macro reports all three
+transitions inside a single HID report, so they share a timestamp and arrive in
+one SYN_REPORT frame. Pressing the combo by hand means holding SUPER+SHIFT and
+then tapping 3, which necessarily lands in a later frame.
+
+So: grab the keyboard, mirror it through uinput, and swap only those single-frame
+triples for KEY_SYSRQ. Everything else passes through untouched.
+"""
+
+import errno
+import os
+import sys
+import time
+
+import evdev
+from evdev import ecodes
+
+DEVICE = "/dev/input/by-id/usb-Compx_Air100@Lofree-event-kbd"
+
+# The macro's three simultaneous transitions.
+MACRO = frozenset({ecodes.KEY_LEFTSHIFT, ecodes.KEY_LEFTMETA, ecodes.KEY_3})
+REPLACEMENT = ecodes.KEY_SYSRQ  # xkb keycode 107 -> keysym Print
+
+
+def log(msg):
+    print(msg, file=sys.stderr, flush=True)
+
+
+def wait_for_device(path, timeout=None):
+    """Block until the device node exists (dongle reconnects, replugs)."""
+    waited = 0.0
+    while not os.path.exists(path):
+        if timeout is not None and waited >= timeout:
+            return False
+        time.sleep(1.0)
+        waited += 1.0
+    return True
+
+
+def build_mirror(dev):
+    caps = dev.capabilities(absinfo=False)
+    caps.pop(ecodes.EV_SYN, None)
+    caps.pop(ecodes.EV_FF, None)
+    # We synthesise Print even if the board never advertises it.
+    caps.setdefault(ecodes.EV_KEY, [])
+    if REPLACEMENT not in caps[ecodes.EV_KEY]:
+        caps[ecodes.EV_KEY].append(REPLACEMENT)
+    return evdev.UInput(caps, name="prtscr-remap (Air100)")
+
+
+def is_macro_frame(frame):
+    """True when the frame is exactly the three macro keys moving together."""
+    keys = [e for e in frame if e.type == ecodes.EV_KEY]
+    if len(keys) != len(MACRO):
+        return None
+    if {e.code for e in keys} != MACRO:
+        return None
+    values = {e.value for e in keys}
+    if len(values) != 1:
+        return None
+    value = values.pop()
+    # Ignore autorepeat (value 2); only a clean press or release counts.
+    return value if value in (0, 1) else None
+
+
+def pump(dev, ui):
+    frame = []
+    for event in dev.read_loop():
+        if event.type == ecodes.EV_SYN:
+            if event.code != ecodes.SYN_REPORT:
+                continue
+            value = is_macro_frame(frame)
+            if value is not None:
+                ui.write(ecodes.EV_KEY, REPLACEMENT, value)
+            else:
+                for e in frame:
+                    ui.write(e.type, e.code, e.value)
+            ui.syn()
+            frame = []
+        else:
+            frame.append(event)
+
+
+def main():
+    if not wait_for_device(DEVICE):
+        return 1
+
+    dev = evdev.InputDevice(DEVICE)
+    ui = build_mirror(dev)
+    dev.grab()
+    log(f"grabbed {dev.name} -> {ui.device.path}")
+
+    try:
+        pump(dev, ui)
+    except OSError as e:
+        # Device vanished (unplug / dongle drop): exit and let systemd restart.
+        if e.errno in (errno.ENODEV, errno.EIO):
+            log("keyboard disconnected")
+            return 0
+        raise
+    finally:
+        try:
+            dev.ungrab()
+        except OSError:
+            pass
+        ui.close()
+        dev.close()
+    return 0
+
+
+if __name__ == "__main__":
+    try:
+        sys.exit(main())
+    except KeyboardInterrupt:
+        sys.exit(0)

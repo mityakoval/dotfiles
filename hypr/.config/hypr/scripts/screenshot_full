@@ -1,0 +1,13 @@
+#!/usr/bin/bash
+set -o pipefail
+
+dir="$HOME/Pictures/Screenshots"
+mkdir -p "$dir"
+
+file="$dir/screenshot_$(date +%Y%m%d-%H%M%S).png"
+if grim - | tee "$file" | wl-copy; then
+    notify-send "Screenshot copied to clipboard" -a "ss"
+else
+    rm -f "$file"
+    notify-send "Screenshot failed" -a "ss"
+fi

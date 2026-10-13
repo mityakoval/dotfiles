@@ -1,0 +1,17 @@
+#!/usr/bin/bash
+set -o pipefail
+
+dir="$HOME/Pictures/Screenshots"
+mkdir -p "$dir"
+
+# Escape during the region select exits non-zero: bail out silently.
+geom=$(slurp) || exit 0
+[ -n "$geom" ] || exit 0
+
+file="$dir/screenshot_$(date +%Y%m%d-%H%M%S).png"
+if grim -g "$geom" - | tee "$file" | wl-copy; then
+    notify-send "Screenshot copied to clipboard" -a "ss"
+else
+    rm -f "$file"
+    notify-send "Screenshot failed" -a "ss"
+fi

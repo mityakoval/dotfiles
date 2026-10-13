@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# Blocks commits that contain anything that looks like a secret.
+# Enabled by bootstrap.sh via `git config core.hooksPath hooks`.
+if ! command -v gitleaks >/dev/null; then
+    echo "pre-commit: gitleaks not installed, refusing to commit (pacman -S gitleaks)" >&2
+    exit 1
+fi
+exec gitleaks git --pre-commit --staged --redact --no-banner
