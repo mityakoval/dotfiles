@@ -239,16 +239,16 @@ wallpaper_scheme = "m3-content"
     builtin_ids = [ "gtk3", "gtk4", "hyprland", "kitty", "qt" ]
 
 [wallpaper]
-directory = "/home/mitya/.config/hypr/wallpapers"
+directory = "/home/mitya/Pictures/Wallpapers"
 
     [wallpaper.default]
-    path = "/home/mitya/.config/hypr/wallpapers/k.png"
+    path = "/home/mitya/Pictures/Wallpapers/k.png"
 
     [wallpaper.last]
-    path = "/home/mitya/.config/hypr/wallpapers/k.png"
+    path = "/home/mitya/Pictures/Wallpapers/k.png"
 
     [wallpaper.monitors.DP-2]
-    path = "/home/mitya/.config/hypr/wallpapers/k.png"
+    path = "/home/mitya/Pictures/Wallpapers/k.png"
 
 [widget.clock]
 format = "{:%H:%M:%S}"
